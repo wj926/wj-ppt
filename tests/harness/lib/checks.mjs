@@ -235,6 +235,66 @@ export async function checkPresentMode(ctx) {
   return { title: "발표 모드", results: r, errs };
 }
 
+export async function checkOverlayClickthrough(ctx) {
+  const r = [];
+  const id = await uploadFixture("image-heavy-slide.html");
+  const { page, errs } = await openEditor(ctx, id);
+  await page.click("#modeBtn"); await page.waitForTimeout(250);
+
+  // 1) 텍스트 없는 오버레이로 그림이 가려져도 일반 클릭으로 그림 선택돼야
+  let c = await page.evaluate(() => {
+    const d = document.querySelector("#frame").contentDocument;
+    const img = d.querySelector(".slide.active img");
+    const r = img.getBoundingClientRect();
+    const cx = Math.round(r.left + r.width / 2), cy = Math.round(r.top + r.height / 2);
+    const ov = d.createElement("div");
+    ov.style.cssText = `position:absolute;left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;background:rgba(0,0,0,.01);z-index:1000`;
+    ov.id = "TEST_OV1"; d.body.appendChild(ov);
+    return { cx, cy };
+  });
+  await page.evaluate(({ cx, cy }) => {
+    const d = document.querySelector("#frame").contentDocument;
+    d.elementFromPoint(cx, cy).dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, clientX: cx, clientY: cy }));
+  }, c);
+  await page.waitForTimeout(200);
+  r.push({ name: "장식 오버레이에 가려진 그림 — 일반 클릭으로 자동 선택", pass: await page.evaluate(() => !!document.querySelector("#frame").contentDocument.querySelector(".hre-sel-img")) });
+
+  // 정리
+  await page.evaluate(() => {
+    const d = document.querySelector("#frame").contentDocument;
+    const ov = d.getElementById("TEST_OV1"); if (ov) ov.remove();
+    d.querySelectorAll(".hre-sel,.hre-sel-img,.hre-sel-box").forEach((e) => e.classList.remove("hre-sel", "hre-sel-img", "hre-sel-box"));
+  });
+
+  // 2) 텍스트 오버레이: 일반 클릭은 텍스트, Alt+클릭은 그림
+  c = await page.evaluate(() => {
+    const d = document.querySelector("#frame").contentDocument;
+    const img = d.querySelector(".slide.active img");
+    const r = img.getBoundingClientRect();
+    const cx = Math.round(r.left + r.width / 2), cy = Math.round(r.top + r.height / 2);
+    const ov = d.createElement("div");
+    ov.style.cssText = `position:absolute;left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;background:rgba(0,0,0,.01);z-index:1000;color:#000`;
+    ov.id = "TEST_OV2"; ov.textContent = "제목이 그림을 덮은 상황";
+    d.body.appendChild(ov);
+    return { cx, cy };
+  });
+  await page.evaluate(({ cx, cy }) => {
+    const d = document.querySelector("#frame").contentDocument;
+    d.elementFromPoint(cx, cy).dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, clientX: cx, clientY: cy }));
+  }, c);
+  await page.waitForTimeout(200);
+  r.push({ name: "텍스트 오버레이 — 일반 클릭은 텍스트 선택", pass: await page.evaluate(() => !!document.querySelector("#frame").contentDocument.querySelector(".hre-sel")) });
+  await page.evaluate(({ cx, cy }) => {
+    const d = document.querySelector("#frame").contentDocument;
+    d.elementFromPoint(cx, cy).dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, clientX: cx, clientY: cy, altKey: true }));
+  }, c);
+  await page.waitForTimeout(200);
+  r.push({ name: "텍스트 오버레이 — Alt+클릭으로 그림 선택", pass: await page.evaluate(() => !!document.querySelector("#frame").contentDocument.querySelector(".hre-sel-img")) });
+
+  await page.close();
+  return { title: "가려진 그림 클릭 (overlay click-through)", results: r, errs };
+}
+
 export async function checkPasteAndDelete(ctx) {
   const r = [];
   const id = await uploadFixture("simple-slide.html");

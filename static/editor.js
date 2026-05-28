@@ -218,7 +218,7 @@
     const hb = $("hintbar");
     hb.classList.toggle("edit", editMode);
     hb.innerHTML = editMode
-      ? "글자/그림 <b>클릭</b>해 수정·이동·크기 · <b>Ctrl+V</b> 이미지 붙여넣기 · 선택 후 <b>Del</b> 삭제 · 끝나면 <b>저장</b>"
+      ? "글자/그림 <b>클릭</b>해 수정·이동 (글자가 그림을 덮으면 <b>Alt+클릭</b>) · <b>Ctrl+V</b> 붙여넣기 · <b>Del</b> 삭제 · <b>저장</b>"
       : "편집을 시작하려면 우측 상단 <b>편집 시작</b>을 누르세요.";
     if (!editMode) clearSelection();
   };
@@ -280,13 +280,22 @@
       e.preventDefault();
       selectImage(t); return;
     }
+    // Alt+클릭: 이 위치에 가려진 그림 강제 선택 (글자가 그림을 덮은 경우)
+    if (e.altKey) {
+      const stack = doc.elementsFromPoint(e.clientX, e.clientY);
+      const img = stack.find((el) => el.tagName === "IMG");
+      if (img) { e.preventDefault(); selectImage(img); return; }
+    }
     const txt = pickTextEl(t);
     if (txt) {
       if (editingText === txt) return;  // 같은 요소 재클릭이면 캐럿만 이동
       selectText(txt);
       return;
     }
-    // 텍스트를 못 찾으면(칸 여백 등) 선택 해제
+    // 텍스트도 못 찾았으면(여백·장식 박스 등), 그 자리에 가려진 그림이 있나 보고 선택
+    const stack = doc.elementsFromPoint(e.clientX, e.clientY);
+    const img = stack.find((el) => el.tagName === "IMG");
+    if (img) { e.preventDefault(); selectImage(img); return; }
     if (selType) clearSelection();
   }
 
