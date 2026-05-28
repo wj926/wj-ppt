@@ -258,7 +258,18 @@ def create_deck():
     (d / "revisions").mkdir()
     (d / "build").mkdir()
     (d / "source" / "index.original.html").write_text(html, encoding="utf-8")
-    (d / "working" / "index.html").write_text(html, encoding="utf-8")
+    # 업로드 자동 최적화: base64 인라인 이미지를 1100px·JPEG q86 으로 재인코딩 (working 에만 적용).
+    # source 는 원본 그대로 보존. 실패해도 working 은 원본으로 fallback.
+    working_html = html
+    try:
+        from optimize_deck import optimize_file
+        opt_html, n_imgs, saved = optimize_file(html)
+        if n_imgs and saved > 0:
+            working_html = opt_html
+            app.logger.info(f"deck {deck_id} 업로드 자동 최적화: {n_imgs}개 이미지, {saved/1e6:.2f}MB 절감")
+    except Exception as e:
+        app.logger.warning(f"deck {deck_id} 자동 최적화 실패: {e}")
+    (d / "working" / "index.html").write_text(working_html, encoding="utf-8")
 
     meta = {
         "title": extract_title(html),
