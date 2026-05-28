@@ -235,6 +235,78 @@ export async function checkPresentMode(ctx) {
   return { title: "발표 모드", results: r, errs };
 }
 
+export async function checkPasteAndDelete(ctx) {
+  const r = [];
+  const id = await uploadFixture("simple-slide.html");
+  const { page, errs } = await openEditor(ctx, id);
+  const fl = page.frameLocator("#frame");
+  await page.click("#modeBtn"); await page.waitForTimeout(250);
+
+  // 1) 클립보드 붙여넣기 (HRE.insertImage 경유 — 동일 로직)
+  const dataUrl = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAQAAAAmkwkpAAAAEUlEQVR42mP8z8BQz4AEGAEAUAUC/EW9NwAAAABJRU5ErkJggg==";
+  const imgBefore = await fl.locator(".slide.active img").count();
+  await page.evaluate((u) => window.HRE.insertImage(u), dataUrl);
+  await page.waitForTimeout(250);
+  const imgAfter = await fl.locator(".slide.active img").count();
+  r.push({ name: "이미지 붙여넣기 — img 추가", pass: imgAfter === imgBefore + 1, info: `${imgBefore}->${imgAfter}` });
+  r.push({ name: "붙여넣은 이미지 자동 선택", pass: await fl.locator(".slide.active img.hre-sel-img").count() === 1 });
+  // 핸들도 표시되어야
+  r.push({ name: "붙여넣기 후 리사이즈 핸들 표시", pass: await page.locator("#imgHandle").isVisible() });
+
+  // 2) 삭제: li 하나 선택 -> 패널 삭제 버튼
+  const liCountBefore = await fl.locator(".slide.active li").count();
+  await fl.locator(".slide.active li").first().click(); await page.waitForTimeout(150);
+  r.push({ name: "텍스트 선택 시 삭제 버튼 표시", pass: (await page.locator("#pp_del").count()) > 0 });
+  await page.click("#pp_del"); await page.waitForTimeout(200);
+  const liCountAfter = await fl.locator(".slide.active li").count();
+  r.push({ name: "삭제 후 li 수 감소", pass: liCountAfter === liCountBefore - 1, info: `${liCountBefore}->${liCountAfter}` });
+
+  // 3) Undo 로 복구
+  await page.click("#undoBtn"); await page.waitForTimeout(250);
+  const liCountUndo = await fl.locator(".slide.active li").count();
+  r.push({ name: "Undo 로 삭제 복구", pass: liCountUndo === liCountBefore, info: "after undo=" + liCountUndo });
+
+  // 4) Del 키로 이미지 삭제 (iframe doc 에 직접 dispatch — 실브라우저에선 포커스 라우팅으로 동작)
+  await fl.locator(".slide.active img").first().click(); await page.waitForTimeout(150);
+  const imgN = await fl.locator(".slide.active img").count();
+  await page.evaluate(() => {
+    const d = document.querySelector("#frame").contentDocument;
+    d.dispatchEvent(new KeyboardEvent("keydown", { key: "Delete", bubbles: true, cancelable: true }));
+  });
+  await page.waitForTimeout(200);
+  r.push({ name: "Del 키로 그림 삭제", pass: (await fl.locator(".slide.active img").count()) === imgN - 1 });
+
+  await page.close();
+  return { title: "클립보드 붙여넣기 + 선택 요소 삭제", results: r, errs };
+}
+
+export async function checkPdfExport(ctx) {
+  const r = [];
+  const id = await uploadFixture("multi-slide.html");  // 4 슬라이드
+  const page = await ctx.newPage(); const errs = trackErrors(page);
+  await page.goto(BASE + "/raw/" + id, { waitUntil: "load" }); await page.waitForTimeout(400);
+  // 앱과 동일한 print.css 주입 후 print 미디어 에뮬레이트
+  await page.evaluate(() => {
+    const l = document.createElement("link"); l.rel = "stylesheet"; l.media = "print"; l.href = "/static/print.css";
+    document.head.appendChild(l);
+  });
+  await page.emulateMedia({ media: "print" }); await page.waitForTimeout(300);
+  const m = await page.evaluate(() => {
+    const slides = [...document.querySelectorAll(".slide")];
+    return { count: slides.length, visible: slides.every((s) => getComputedStyle(s).opacity === "1"), bodyH: document.body.scrollHeight };
+  });
+  r.push({ name: "인쇄 시 전 슬라이드 노출", pass: m.visible && m.count === 4, info: "slides=" + m.count + " visible=" + m.visible });
+  r.push({ name: "슬라이드당 1페이지(높이≈N*900)", pass: m.bodyH >= 3.5 * 900, info: "bodyH=" + m.bodyH });
+  const pdf = await page.pdf({ preferCSSPageSize: true, printBackground: true });
+  r.push({ name: "PDF 생성됨(비어있지 않음)", pass: pdf.length > 3000, info: pdf.length + " bytes" });
+  const s = pdf.toString("latin1");
+  const pages = (s.match(/\/Type\s*\/Page[^s]/g) || []).length;
+  r.push({ name: "PDF 페이지 수 = 슬라이드 수(4)", pass: pages === 4, info: "pages=" + pages });
+  await page.emulateMedia({ media: "screen" });
+  await page.close();
+  return { title: "PDF 내보내기(원본 16:9 비율)", results: r, errs };
+}
+
 export async function checkImagePersist(ctx) {
   const r = [];
   const id = await uploadFixture("simple-slide.html");

@@ -1,7 +1,7 @@
 // 전체 하네스 실행: 홈 -> 업로드/편집/저장 -> 멀티슬라이드 -> 모바일 -> 리포트.
 // 하나 실패해도 다음 계속 진행, 마지막에 실패 모아 exit 1.
 import { newBrowser, maybeLogin, cleanupHarnessDecks, writeReport, summarize } from "../lib/core.mjs";
-import { checkHome, checkUploadEditSave, checkMultislide, checkPageNav, checkUndoRedo, checkPropPanel, checkEditingFixes, checkResizeHandle, checkPresentMode, checkImagePersist, checkUploadPrecheck, checkMobileLayout } from "../lib/checks.mjs";
+import { checkHome, checkUploadEditSave, checkMultislide, checkPageNav, checkUndoRedo, checkPropPanel, checkEditingFixes, checkResizeHandle, checkPresentMode, checkPasteAndDelete, checkPdfExport, checkImagePersist, checkUploadPrecheck, checkMobileLayout } from "../lib/checks.mjs";
 
 const STEPS = [
   ["home", checkHome],
@@ -13,6 +13,8 @@ const STEPS = [
   ["editing-fixes", checkEditingFixes],
   ["resize-handle", checkResizeHandle],
   ["present-mode", checkPresentMode],
+  ["paste-delete", checkPasteAndDelete],
+  ["pdf-export", checkPdfExport],
   ["image-persist", checkImagePersist],
   ["upload-precheck", checkUploadPrecheck],
   ["mobile-layout", checkMobileLayout],

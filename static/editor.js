@@ -45,6 +45,7 @@
       if (editingText) editingText._dirtyText = true;
       markDirty(); schedulePush(700);
     }, true);
+    doc.addEventListener("paste", handlePaste, true);
     // 텍스트 편집 커밋 시 변경 카운트
     doc.addEventListener("focusout", (e) => {
       if (e.target && e.target._dirtyText) { changeCount.text++; e.target._dirtyText = false; }
@@ -217,7 +218,7 @@
     const hb = $("hintbar");
     hb.classList.toggle("edit", editMode);
     hb.innerHTML = editMode
-      ? "글자를 <b>클릭</b>해 수정 · 그림을 클릭해 선택 후 <b>드래그/＋－/화살표</b>로 이동·크기 · 끝나면 <b>저장</b>"
+      ? "글자/그림 <b>클릭</b>해 수정·이동·크기 · <b>Ctrl+V</b> 이미지 붙여넣기 · 선택 후 <b>Del</b> 삭제 · 끝나면 <b>저장</b>"
       : "편집을 시작하려면 우측 상단 <b>편집 시작</b>을 누르세요.";
     if (!editMode) clearSelection();
   };
@@ -309,12 +310,14 @@
         <label><input type="checkbox" id="pp_bold" ${isBold ? "checked" : ""}> 굵게</label>
         <label>색 <input type="color" id="pp_color" value="${col}"></label>
         <div class="palign">정렬 <button data-al="left">좌</button><button data-al="center">가운데</button><button data-al="right">우</button></div>
-        <button class="pp_reset" id="pp_box">이 글자가 든 박스(칸) 크기 조절</button>`;
+        <button class="pp_reset" id="pp_box">이 글자가 든 박스(칸) 크기 조절</button>
+        <button class="pp_reset pp_danger" id="pp_del">이 글자 칸 삭제</button>`;
       $("pp_fs").oninput = () => { sel.style.fontSize = $("pp_fs").value + "px"; markDirty("text"); schedulePush(500); };
       $("pp_bold").onchange = () => { sel.style.fontWeight = $("pp_bold").checked ? "bold" : "normal"; markDirty("text"); pushHistory(); };
       $("pp_color").oninput = () => { sel.style.color = $("pp_color").value; markDirty("text"); schedulePush(500); };
       p.querySelectorAll(".palign button").forEach((b) => { b.onclick = () => { sel.style.textAlign = b.dataset.al; markDirty("text"); pushHistory(); }; });
       $("pp_box").onclick = () => selectBox(sel.parentElement);
+      $("pp_del").onclick = deleteSel;
     } else if (selType === "box") {
       const sc = stageScale(); const rect = sel.getBoundingClientRect();
       const w = Math.round(rect.width / sc), h = Math.round(rect.height / sc);
@@ -322,11 +325,13 @@
         <label>너비 <input type="number" id="pp_bw" value="${w}" min="20" step="5"> px</label>
         <label>높이 <input type="number" id="pp_bh" value="${h}" min="20" step="5"> px</label>
         <button class="pp_reset" id="pp_up">▢ 상위 박스 선택</button>
-        <button class="pp_reset" id="pp_breset">원래 크기로</button>`;
+        <button class="pp_reset" id="pp_breset">원래 크기로</button>
+        <button class="pp_reset pp_danger" id="pp_del">이 박스 삭제</button>`;
       $("pp_bw").oninput = () => { sel.style.width = $("pp_bw").value + "px"; markDirty(); schedulePush(500); };
       $("pp_bh").oninput = () => { sel.style.height = $("pp_bh").value + "px"; markDirty(); schedulePush(500); };
       $("pp_up").onclick = () => selectBox(sel.parentElement);
       $("pp_breset").onclick = () => { sel.style.width = ""; sel.style.height = ""; markDirty(); pushHistory(); updateProp(); };
+      $("pp_del").onclick = deleteSel;
     } else if (selType === "image") {
       const w = Math.round(curWidthStagePx(sel));
       const tx = Math.round(+sel.dataset.hretx || 0), ty = Math.round(+sel.dataset.hrety || 0);
@@ -334,11 +339,13 @@
         <label>너비 <input type="number" id="pp_w" value="${w}" min="20" step="5"> px</label>
         <label>좌우 <input type="number" id="pp_x" value="${tx}" step="5"> px</label>
         <label>상하 <input type="number" id="pp_y" value="${ty}" step="5"> px</label>
-        <button class="pp_reset" id="pp_reset">원위치/원크기</button>`;
+        <button class="pp_reset" id="pp_reset">원위치/원크기</button>
+        <button class="pp_reset pp_danger" id="pp_del">이 그림 삭제</button>`;
       $("pp_w").oninput = () => { setImgWidth(sel, parseFloat($("pp_w").value) || 20); markDirty("image"); schedulePush(500); };
       $("pp_x").oninput = () => { sel.dataset.hretx = $("pp_x").value; applyTranslate(sel); markDirty("image"); schedulePush(500); };
       $("pp_y").oninput = () => { sel.dataset.hrety = $("pp_y").value; applyTranslate(sel); markDirty("image"); schedulePush(500); };
       $("pp_reset").onclick = () => $("resetSel").click();
+      $("pp_del").onclick = deleteSel;
     }
     positionHandle();
   }
@@ -437,6 +444,10 @@
       if (e.key === "ArrowDown") { nudge(sel, 0, step); e.preventDefault(); e.stopPropagation(); return; }
     }
     if (e.key === "Escape") { clearSelection(); return; }
+    // 선택된 그림/박스 삭제 (텍스트 편집 중이면 패스 — 그땐 본문 글자 삭제)
+    if (!editingNow && (selType === "image" || selType === "box") && (e.key === "Delete" || e.key === "Backspace")) {
+      deleteSel(); e.preventDefault(); e.stopPropagation(); return;
+    }
     // 덱 자체의 키보드 네비게이션(스페이스=다음장 등)이 편집을 방해하지 않게 차단.
     // 입력/캐럿 기본동작은 유지(텍스트 편집 중 스페이스는 그대로 입력).
     if (NAV_KEYS.includes(e.key)) {
@@ -542,6 +553,79 @@
   document.addEventListener("fullscreenchange", () => {
     if (!document.fullscreenElement && document.body.classList.contains("presenting")) exitPresent();
   });
+
+  // ---------- 선택 요소 삭제 ----------
+  function deleteSel() {
+    if (!sel) { toast("삭제할 요소를 먼저 선택하세요", true); return; }
+    const node = sel;
+    clearSelection();
+    node.remove();
+    markDirty(); pushHistory();
+    toast("삭제했습니다 — Ctrl+Z 로 복구");
+  }
+
+  // ---------- 클립보드 이미지 붙여넣기 (Ctrl+V) ----------
+  function insertImageAt(dataUrl) {
+    const slide = doc.querySelector(".slide.active") || doc.querySelector(".slide");
+    if (!slide) { toast("슬라이드를 찾지 못했습니다", true); return null; }
+    const img = doc.createElement("img");
+    img.src = dataUrl;
+    // 무대(1600x900) 좌표계로 가운데쯤에 절대배치 — 이후 드래그/핸들로 이동·크기
+    img.style.position = "absolute";
+    img.style.left = "600px"; img.style.top = "300px";
+    img.style.width = "320px"; img.style.height = "auto";
+    img.style.zIndex = "20";
+    slide.appendChild(img);
+    selectImage(img); markDirty("image"); pushHistory(); positionHandle();
+    return img;
+  }
+  async function handlePaste(e) {
+    if (!editMode) return;
+    const cd = e.clipboardData; if (!cd || !cd.items) return;
+    const item = [...cd.items].find((it) => it.type && it.type.startsWith("image/"));
+    if (!item) return;
+    e.preventDefault(); e.stopPropagation();
+    const file = item.getAsFile(); if (!file) return;
+    try {
+      const dataUrl = await downscale(file, 1100, 0.86);
+      insertImageAt(dataUrl);
+      toast("이미지 붙여넣음 — 드래그로 옮기세요");
+    } catch (err) { toast("이미지 붙여넣기 실패", true); }
+  }
+  document.addEventListener("paste", handlePaste, true);
+  // 외부(테스트 등)에서 호출 가능하게 노출
+  window.HRE.insertImage = (dataUrl) => insertImageAt(dataUrl);
+  window.HRE.deleteSelection = deleteSel;
+
+  // ---------- PDF 내보내기 (클라이언트 인쇄, 서버 부하 0) ----------
+  function fitSlideForPrint(s) {
+    const f = s.querySelector(".fit"); if (!f) return null;
+    const prev = f.style.transform;
+    f.style.transform = "none";
+    const body = f.parentElement, cs = win.getComputedStyle(body);
+    const availH = body.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+    const availW = body.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+    const k = Math.min(1, availH / f.scrollHeight, availW / f.scrollWidth);
+    if (isFinite(k) && k < 1 && k > 0) { f.style.transformOrigin = "top left"; f.style.transform = "scale(" + k + ")"; }
+    return { f, prev };
+  }
+  function exportPdf() {
+    if (!doc) return;
+    if (!doc.getElementById("hre-print-css")) {
+      const l = doc.createElement("link");
+      l.id = "hre-print-css"; l.rel = "stylesheet"; l.media = "print";
+      l.href = "/static/print.css"; l.setAttribute("data-hre", "1");
+      doc.head.appendChild(l);
+    }
+    // 모든 슬라이드를 각자 영역에 맞게 fit (인쇄 시 활성 슬라이드만 fit 되던 문제 방지). 인쇄 후 복원.
+    const restore = [];
+    doc.querySelectorAll(".slide").forEach((s) => { const r = fitSlideForPrint(s); if (r) restore.push(r); });
+    const cleanup = () => { restore.forEach(({ f, prev }) => { f.style.transform = prev; }); win.removeEventListener("afterprint", cleanup); };
+    win.addEventListener("afterprint", cleanup);
+    toast("인쇄창에서 '대상'을 'PDF로 저장' 으로 선택하세요");
+    setTimeout(() => { try { win.focus(); win.print(); } catch (e) { toast("인쇄창을 열지 못했습니다", true); cleanup(); } }, 200);
+  }
+  $("pdfBtn").onclick = exportPdf;
 
   // ---------- 저장 ----------
   async function save(silent) {
