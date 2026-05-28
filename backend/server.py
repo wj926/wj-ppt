@@ -67,6 +67,40 @@ def no_cache_static(resp):
     return resp
 
 
+@app.after_request
+def maybe_gzip(resp):
+    """텍스트/HTML/JSON/JS/CSS 응답을 gzip 압축 — 큰 self-contained 덱 전송 안정성 향상.
+    범위요청(206) 이나 이미 인코딩된 응답은 건너뜀. 100MB 초과 본문은 메모리 보호 차원에서 건너뜀."""
+    try:
+        if resp.status_code != 200:
+            return resp
+        if "gzip" not in (request.headers.get("Accept-Encoding") or ""):
+            return resp
+        if resp.headers.get("Content-Encoding"):
+            return resp
+        ct = (resp.content_type or "").lower()
+        if not (ct.startswith("text/") or "json" in ct or "javascript" in ct or "css" in ct or "svg" in ct):
+            return resp
+        data = resp.get_data()
+        if len(data) < 1024 or len(data) > 100 * 1024 * 1024:
+            return resp
+        import gzip, io
+        buf = io.BytesIO()
+        with gzip.GzipFile(fileobj=buf, mode="wb", compresslevel=5) as gz:
+            gz.write(data)
+        cdata = buf.getvalue()
+        if len(cdata) >= len(data):
+            return resp
+        resp.set_data(cdata)
+        resp.headers["Content-Encoding"] = "gzip"
+        resp.headers["Content-Length"] = str(len(cdata))
+        vary = resp.headers.get("Vary")
+        resp.headers["Vary"] = "Accept-Encoding" if not vary else (vary + ", Accept-Encoding")
+    except Exception:
+        pass
+    return resp
+
+
 # ---------- 유틸 ----------
 def now_iso():
     return datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H-%M-%SZ")
@@ -129,13 +163,15 @@ def editor(deck_id):
 
 
 # 에디터 iframe 이 로드하는 실제 편집 대상 HTML (working)
+# 큰 self-contained 덱(수십 MB) 도 끊김 없이 전달되도록 send_file 로 스트리밍 + 조건부 GET.
 @app.route("/raw/<deck_id>")
 def raw(deck_id):
     d = deck_dir(deck_id)
     f = d / "working" / "index.html"
     if not f.exists():
         abort(404)
-    return Response(f.read_text(encoding="utf-8"), mimetype="text/html")
+    return send_file(str(f), mimetype="text/html; charset=utf-8", conditional=True,
+                     last_modified=f.stat().st_mtime)
 
 
 @app.route("/download/<deck_id>")
