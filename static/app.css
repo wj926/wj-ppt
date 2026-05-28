@@ -1,0 +1,41 @@
+:root{
+  --navy:#05264e;--blue:#1d4ed8;--green:#1f8a4c;--red:#b4424d;
+  --ink:#1f2937;--ink2:#374151;--cap:#6b7280;--line:#e5e7eb;--soft:#f6f8fc;--soft2:#eef3fb;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#eef1f6;color:var(--ink);
+  font-family:"Pretendard","Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",-apple-system,system-ui,sans-serif;}
+.topbar{background:#fff;border-bottom:1px solid var(--line);padding:14px 28px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:20}
+.brand{font-size:20px;font-weight:800;color:var(--navy);display:flex;align-items:center;gap:10px}
+.brand .bar{width:8px;height:24px;background:var(--navy);border-radius:2px;display:inline-block}
+.userbox{font-size:14px;color:var(--cap);display:flex;align-items:center;gap:10px}
+.wrap{max-width:1000px;margin:0 auto;padding:28px 20px 60px;display:flex;flex-direction:column;gap:22px}
+.lede{font-size:16px;color:var(--ink2);line-height:1.6}
+.lede b{color:var(--navy)}
+.card{background:#fff;border-radius:12px;padding:24px 26px;box-shadow:0 6px 18px rgba(0,0,0,.07)}
+.card h2,.listhead{font-size:18px;font-weight:800;color:var(--navy);margin-bottom:4px}
+.listhead{margin:6px 0 2px}
+.sub{font-size:14px;color:var(--cap);margin-bottom:14px}
+.formrow{display:flex;gap:10px;flex-wrap:wrap}
+input{font:inherit;font-size:15px;padding:10px 14px;border:1px solid #cdd5e0;border-radius:8px;background:#fff;flex:1;min-width:160px}
+input:focus{outline:2px solid var(--blue);border-color:var(--blue)}
+.btn{font:inherit;font-weight:700;font-size:15px;padding:10px 20px;border-radius:8px;border:none;cursor:pointer;color:#fff;background:var(--navy)}
+.btn:hover{background:#0a3568}
+.btn.ghost{background:#fff;color:var(--navy);border:2px solid var(--navy)}
+.btn.sm{padding:7px 13px;font-size:13px}
+.btn.danger{background:#fff;color:var(--red);border:2px solid var(--red)}
+.link{background:none;border:none;color:var(--blue);font:inherit;font-weight:700;cursor:pointer;text-decoration:underline}
+.err{color:var(--red);font-size:14px;margin-top:10px;min-height:1em}
+.drop{border:2px dashed #b9c6d8;border-radius:12px;background:var(--soft);padding:34px;text-align:center;transition:.15s;cursor:pointer}
+.drop.over{border-color:var(--blue);background:var(--soft2)}
+.drop-inner{display:flex;flex-direction:column;align-items:center;gap:10px;color:var(--ink2);font-size:15px}
+.drop-icon{width:48px;height:48px;border-radius:50%;background:var(--navy);color:#fff;font-size:28px;display:flex;align-items:center;justify-content:center}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;margin-top:10px}
+.empty{color:var(--cap);font-size:15px;padding:24px 4px}
+.deck{background:#fff;border-radius:12px;padding:18px;box-shadow:0 4px 14px rgba(0,0,0,.07);display:flex;flex-direction:column;gap:10px}
+.deck .dtitle{font-size:16px;font-weight:800;color:var(--navy);line-height:1.3}
+.deck .dmeta{font-size:12px;color:var(--cap)}
+.deck .dacts{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--navy);color:#fff;padding:12px 22px;border-radius:8px;font-size:14px;box-shadow:0 8px 24px rgba(0,0,0,.25);opacity:0;transition:.25s;pointer-events:none;z-index:50}
+.toast.show{opacity:1}
+.toast.err{background:var(--red)}

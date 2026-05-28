@@ -1,0 +1,21 @@
+# 사용자 업로드/저장 데이터 (배포 인스턴스마다 다름 — 커밋 금지)
+storage/decks/*
+!storage/decks/.gitkeep
+
+# 파이썬
+__pycache__/
+*.pyc
+
+# 하네스 산출물
+tests/harness/screenshots/*
+tests/harness/reports/*
+!tests/harness/screenshots/.gitkeep
+!tests/harness/reports/.gitkeep
+
+# node
+node_modules/
+
+# 임시
+_shot*.png
+*.log
+.DS_Store

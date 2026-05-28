@@ -1,0 +1,108 @@
+// 실물 덱과 같은 구조(1600x900 .stage, .slide hash 네비, 클릭 advance)의 테스트 픽스처 생성.
+import { writeFileSync, mkdirSync } from "fs";
+import { fileURLToPath } from "url";
+import { dirname, join } from "path";
+
+const HERE = dirname(fileURLToPath(import.meta.url));
+const FIX = join(HERE, "..", "fixtures");
+mkdirSync(FIX, { recursive: true });
+
+// 작은 색 블록 PNG (data URI) — 리사이즈/이동 테스트용
+const PNG_RED = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+const PNG_BLU = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNgYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
+
+const NAV = `
+<script>
+(function(){
+  var stage=document.getElementById('stage');
+  var slides=[].slice.call(document.querySelectorAll('.slide'));
+  var pgbar=document.getElementById('pgbar'); var n=slides.length, i=0;
+  slides.forEach(function(s,idx){var pg=s.querySelector('.pg'); if(pg) pg.textContent=(idx+1)+' / '+n;});
+  function show(k){
+    i=Math.max(0,Math.min(n-1,k));
+    slides.forEach(function(s,idx){s.classList.toggle('active',idx===i);});
+    if(pgbar) pgbar.style.width=((i+1)/n*100)+'%';
+    if(location.hash!=='#'+(i+1)) history.replaceState(null,'','#'+(i+1));
+  }
+  function next(){show(i+1);} function prev(){show(i-1);}
+  function fitStage(){var s=Math.min(window.innerWidth/1600,window.innerHeight/900);stage.style.transform='scale('+s+')';}
+  window.addEventListener('resize',fitStage); fitStage();
+  document.addEventListener('keydown',function(e){
+    if(e.key==='ArrowRight'||e.key==='PageDown'||e.key===' '){next();e.preventDefault();}
+    else if(e.key==='ArrowLeft'||e.key==='PageUp'){prev();e.preventDefault();}
+  });
+  document.querySelector('.viewport').addEventListener('click',function(e){
+    if(e.target.closest('a,button,input,select,textarea,label,[contenteditable],[data-no-advance]')) return;
+    if(window.getSelection && String(window.getSelection()).length>0) return;
+    next();
+  });
+  window.addEventListener('hashchange',function(){var k=parseInt((location.hash||'#1').slice(1),10); if(!isNaN(k)&&(k-1)!==i) show(k-1);});
+  var start=parseInt((location.hash||'#1').slice(1),10); if(isNaN(start))start=1;
+  show(start-1);
+})();
+</script>`;
+
+const CSS = `
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:#dfe3ea;font-family:system-ui,"Noto Sans KR",sans-serif;overflow:hidden}
+.viewport{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
+.stage{position:relative;width:1600px;height:900px;flex:none;transform-origin:center;background:#fff;border-radius:6px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.28)}
+.pgbar{position:absolute;top:0;left:0;height:5px;background:#05264e;width:0;z-index:30}
+.slide{position:absolute;inset:0;opacity:0;pointer-events:none;display:flex;flex-direction:column;padding:60px}
+.slide.active{opacity:1;pointer-events:auto}
+h1{font-size:40px;color:#05264e;margin-bottom:20px}
+.h2{font-size:24px;color:#1f2937;font-weight:800;margin:14px 0 8px}
+ul{list-style:none;display:flex;flex-direction:column;gap:10px}
+li{font-size:22px;color:#1f2937;padding-left:20px;position:relative}
+li::before{content:"•";position:absolute;left:0;color:#05264e}
+p{font-size:22px;color:#374151;margin:8px 0}
+figure{margin:14px 0;display:flex;flex-direction:column;gap:6px}
+figure img{display:block}
+figcaption{font-size:16px;color:#6b7280}
+.pg{position:absolute;bottom:18px;right:24px;font-size:14px;color:#6b7280}
+.row{display:flex;gap:24px;align-items:flex-start}
+.row>div{flex:1}`;
+
+function deck(title, slidesHtml, extraHead = "") {
+  return `<!DOCTYPE html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${title}</title>${extraHead}<style>${CSS}</style></head>
+<body><div class="viewport"><div class="stage" id="stage"><div class="pgbar" id="pgbar"></div>
+${slidesHtml}
+</div></div>${NAV}</body></html>`;
+}
+
+const slide = (inner) => `<section class="slide"><h1>${inner.h1}</h1>${inner.body}<span class="pg"></span></section>`;
+
+// 1) simple
+writeFileSync(join(FIX, "simple-slide.html"), deck("심플 슬라이드 테스트", slide({
+  h1: "Simple Slide",
+  body: `<div class="h2">개요</div><ul><li>첫 번째 항목</li><li>두 번째 항목</li><li>세 번째 항목</li></ul>
+  <figure><img src="${PNG_RED}" width="300" height="160" alt="red"><figcaption>그림 1 · 빨강 블록</figcaption></figure>`,
+})));
+
+// 2) multi (4 slides)
+let multi = "";
+for (let k = 1; k <= 4; k++) {
+  multi += slide({ h1: `슬라이드 ${k}`, body: `<p>이것은 ${k}번째 슬라이드 본문입니다.</p><ul><li>${k}-A 항목</li><li>${k}-B 항목</li></ul>` });
+}
+writeFileSync(join(FIX, "multi-slide.html"), deck("멀티 슬라이드 테스트", multi));
+
+// 3) image-heavy
+writeFileSync(join(FIX, "image-heavy-slide.html"), deck("이미지 다수 테스트",
+  slide({ h1: "Image Heavy", body: `<div class="row">
+    <div><figure><img src="${PNG_RED}" width="260" height="150" alt="r"><figcaption>왼쪽</figcaption></figure></div>
+    <div><figure><img src="${PNG_BLU}" width="260" height="150" alt="b"><figcaption>가운데</figcaption></figure></div>
+    <div><figure><img src="${PNG_RED}" width="260" height="150" alt="r2"><figcaption>오른쪽</figcaption></figure></div>
+  </div>` }) +
+  slide({ h1: "Image Heavy 2", body: `<figure><img src="${PNG_BLU}" width="600" height="300" alt="big"><figcaption>큰 그림</figcaption></figure>` })
+));
+
+// 4) external-resource (업로드 전 검사/경고용)
+writeFileSync(join(FIX, "external-resource-slide.html"), deck("외부 리소스 테스트",
+  slide({ h1: "External Resource", body: `<p>외부 리소스를 참조하는 슬라이드</p>
+  <figure><img src="https://example.com/remote.png" width="300" height="160" alt="remote"><figcaption>외부 이미지</figcaption></figure>` }),
+  `<link rel="stylesheet" href="https://example.com/remote.css"><script src="https://example.com/remote.js"></script>`
+));
+
+console.log("fixtures written to", FIX);

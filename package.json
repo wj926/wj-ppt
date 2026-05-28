@@ -1,0 +1,12 @@
+{
+  "name": "wj-ppt",
+  "version": "1.0.0",
+  "description": "Edit LLM-generated static HTML slide decks in the browser",
+  "license": "MIT",
+  "scripts": {
+    "test": "node tests/harness/scripts/run-all.mjs"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.40.0"
+  }
+}

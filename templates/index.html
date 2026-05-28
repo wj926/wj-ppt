@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HTML Revise — 슬라이드 직접 수정</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}?v={{ asset_ver }}">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand"><span class="bar"></span> HTML Revise</div>
+  <div class="userbox" id="userbox"></div>
+</header>
+
+<main class="wrap">
+  <p class="lede">Claude 가 만든 <b>정적 HTML 슬라이드</b>를 올리면, 글자·글씨 크기·그림 위치를 직접 클릭해서 고치고 저장합니다.</p>
+
+  <!-- 로그인 -->
+  <section class="card" id="loginCard" hidden>
+    <h2>로그인</h2>
+    <p class="sub">이름과 연구실 공용 키를 입력하세요. (수정·저장에 필요합니다)</p>
+    <div class="formrow">
+      <input id="loginName" placeholder="이름 (예: 이우진)" autocomplete="name">
+      <input id="loginKey" type="password" placeholder="공용 키" autocomplete="off">
+      <button class="btn" id="loginBtn">로그인</button>
+    </div>
+    <div class="err" id="loginErr"></div>
+  </section>
+
+  <!-- 업로드 -->
+  <section class="card" id="uploadCard" hidden>
+    <h2>새 슬라이드 올리기</h2>
+    <p class="sub">이미지가 인라인된 <b>self-contained HTML</b> 한 파일을 권장합니다 (build_standalone 산출물).</p>
+    <div class="drop" id="drop">
+      <input type="file" id="fileInput" accept=".html,text/html" hidden>
+      <div class="drop-inner">
+        <div class="drop-icon">＋</div>
+        <div>여기로 HTML 파일을 끌어다 놓거나 <button class="link" id="pickBtn">파일 선택</button></div>
+      </div>
+    </div>
+    <div class="err" id="uploadErr"></div>
+  </section>
+
+  <!-- 목록 -->
+  <section>
+    <h2 class="listhead">내 슬라이드</h2>
+    <div class="grid" id="deckGrid"><div class="empty" id="emptyMsg">아직 올린 슬라이드가 없습니다.</div></div>
+  </section>
+</main>
+
+<script src="{{ url_for('static', filename='app.js') }}?v={{ asset_ver }}"></script>
+</body>
+</html>
